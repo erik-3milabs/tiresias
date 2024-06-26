@@ -47,23 +47,35 @@ pub type PaillierModulusSizedNumber = <LargeBiPrimeSizedNumber as Concat>::Outpu
 pub(crate) type PaillierRingElement = DynResidue<{ PaillierModulusSizedNumber::LIMBS }>;
 pub(crate) type PaillierPlaintextRingElement = DynResidue<{ LargeBiPrimeSizedNumber::LIMBS }>;
 
+/// Compute log2[ I(σ, n, b) ]
+/// Appendix B.2 in "Tiresias: Large Scale, Maliciously Secure Threshold Paillier"
+/// src: <https://eprint.iacr.org/archive/2023/998/20240217:153323>
+///
+/// According to Appendix B.2,
+/// I(σ, n, b) = 2^{σ + 2} * b * t * ∆n * (t+1)
+///            ≥ 2^{σ + 2} * b * t * h_{max},
+/// As such,
+/// log2[ I(σ, n, b) ] = (σ + 2) + log2[b] * log2[∆n * (t+1)] * log2[t]
 const fn secret_sharing_polynomial_coefficient_size_upper_bound(
     number_of_parties: usize,
     threshold: usize,
 ) -> usize {
     // Account for summing up `number_of_parties` shamir shares (one from each party)
-    factorial_upper_bound(number_of_parties)
-        + 2 * const_log(threshold)
-        + 2
-        + PaillierModulusSizedNumber::BITS
-        + StatisticalSecuritySizedNumber::BITS
-        + const_log(number_of_parties)
+    factorial_upper_bound(number_of_parties)    // = log2[ ∆n ] 
+        + 2 * const_log(threshold)              // = log2[ t^2 ]
+        + 2                                     // = 2
+        + PaillierModulusSizedNumber::BITS      // = log2[ b ] 
+        + StatisticalSecuritySizedNumber::BITS  // = σ
+        + const_log(number_of_parties)          // = log2[ n ]
 }
 
+/// Compute log2[ D(σ, n, t, b) ]
+/// Section 2.1 in "Tiresias: Large Scale, Maliciously Secure Threshold Paillier"
+/// src: <https://eprint.iacr.org/archive/2023/998/20240217:153323>
 const fn secret_key_share_size_upper_bound(number_of_parties: usize, threshold: usize) -> usize {
-    secret_sharing_polynomial_coefficient_size_upper_bound(number_of_parties, threshold)
-        + threshold * const_log(number_of_parties)
-        + 1
+    secret_sharing_polynomial_coefficient_size_upper_bound(number_of_parties, threshold)    // = log2[ I(σ, n, b) ]
+        + threshold * const_log(number_of_parties)                                          // = log2[ n^t ]
+        + 1                                                                                 // = log2[ 2 ]
 }
 
 // Must use `const` functions for macros, unfortunately `ilog2` returns `u32` and we don't have a
@@ -80,6 +92,7 @@ const fn const_log(n: usize) -> usize {
     counter
 }
 
+/// Compute log2[ number_of_parties! ]
 const fn factorial_upper_bound(number_of_parties: usize) -> usize {
     // See https://math.stackexchange.com/questions/55709/how-to-prove-this-approximation-of-logarithm-of-factorial
     // This expands to $(n+1)log(n+1) - n$ when further bounding $e$ to its floor $2$.
