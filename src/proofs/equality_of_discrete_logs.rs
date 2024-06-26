@@ -327,12 +327,17 @@ impl ProofOfEqualityOfDiscreteLogs {
     }
 
     fn setup_protocol(
+        // = N^2
         n2: PaillierModulusSizedNumber,
+        // = $\tilde{g}$
         base: PaillierModulusSizedNumber,
+        // = $\tilde{h}$
         public_verification_key: PaillierModulusSizedNumber,
         decryption_shares_and_bases: Vec<(PaillierModulusSizedNumber, PaillierModulusSizedNumber)>,
     ) -> (
+        // = g
         PaillierModulusSizedNumber,
+        // = h
         PaillierModulusSizedNumber,
         Vec<(PaillierModulusSizedNumber, PaillierModulusSizedNumber)>,
         Transcript,
