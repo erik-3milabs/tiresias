@@ -226,21 +226,30 @@ impl ProofOfEqualityOfDiscreteLogs {
     #[allow(clippy::too_many_arguments)]
     fn verify_inner(
         &self,
+        // = N^2
         n2: PaillierModulusSizedNumber,
         number_of_parties: u16,
         threshold: u16,
-        base: PaillierModulusSizedNumber,
-        decryption_share_base: PaillierModulusSizedNumber,
-        public_verification_key: PaillierModulusSizedNumber,
-        decryption_share: PaillierModulusSizedNumber,
+        // = g
+        base: PaillierModulusSizedNumber, 
+        // = h
+        decryption_share_base: PaillierModulusSizedNumber, 
+        // = a
+        public_verification_key: PaillierModulusSizedNumber, 
+        // = b
+        decryption_share: PaillierModulusSizedNumber, 
         transcript: &mut Transcript,
         rng: &mut impl CryptoRngCore,
     ) -> Result<()> {
+        // = log2(D)
         let witness_size_upper_bound = secret_key_share_size_upper_bound(
             usize::from(number_of_parties),
             usize::from(threshold),
         );
 
+        // === Verify elements are =/= 0 ===
+        // Protocol 4.1, step 4 dash 1.
+        //
         // Every square number except for zero that is not co-primed to $N^2$ yields factorization
         // of $N$, Therefore checking that a square number is not zero sufficiently assures
         // they belong to the quadratic-residue group.
@@ -262,6 +271,7 @@ impl ProofOfEqualityOfDiscreteLogs {
             return Err(Error::InvalidParams());
         }
 
+        // = e (computed instead of sampled due to Fiat-Shamir transform)
         let challenge: ComputationalSecuritySizedNumber = Self::compute_challenge(
             self.base_randomizer,
             self.decryption_share_base_randomizer,
@@ -274,23 +284,29 @@ impl ProofOfEqualityOfDiscreteLogs {
         let challenge: ProofOfEqualityOfDiscreteLogsRandomnessSizedNumber = challenge.resize();
 
         let bases_lhs = vec![
-            vec![base, public_verification_key],
-            vec![decryption_share_base, decryption_share],
+            vec![base, public_verification_key], // = (g, a)
+            vec![decryption_share_base, decryption_share], // = (h, b)
         ];
 
         let bases_rhs = vec![
-            vec![self.base_randomizer],
-            vec![self.decryption_share_base_randomizer],
+            vec![self.base_randomizer], // = u
+            vec![self.decryption_share_base_randomizer], // = v
         ];
 
         let exponents_lhs = vec![
             (
                 self.response,
                 witness_size_upper_bound + 2 * ComputationalSecuritySizedNumber::BITS,
-            ),
-            (challenge, ComputationalSecuritySizedNumber::BITS),
+            ), // = z
+            (
+                challenge,
+                ComputationalSecuritySizedNumber::BITS
+            ), // = e
         ];
 
+        // Verify that
+        // 1) u = g^z * a^e mod N^2, and
+        // 2) v = h^z * b^e mod N^2
         if batch_verification::<
             { PaillierModulusSizedNumber::LIMBS },
             { ProofOfEqualityOfDiscreteLogsRandomnessSizedNumber::LIMBS },
