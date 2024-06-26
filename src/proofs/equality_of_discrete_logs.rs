@@ -43,8 +43,8 @@ pub struct ProofOfEqualityOfDiscreteLogs {
 }
 
 impl ProofOfEqualityOfDiscreteLogs {
-    /// Create a `ProofOfEqualityOfDiscreteLogs` that proves the equality of the discrete logs of $a
-    /// a = g^x$ and $b = h^x$ in zero-knowledge (i.e. without revealing the witness `x`).
+    /// Create a `ProofOfEqualityOfDiscreteLogs` that proves the equality of the discrete logs of
+    /// $a = g^x$ and $b = h^x$ in zero-knowledge (i.e. without revealing the witness `x`).
     /// Implements PROTOCOL 4.1 from Section 4.2. of the paper.
     #[allow(clippy::too_many_arguments)]
     pub fn prove(
@@ -67,13 +67,14 @@ impl ProofOfEqualityOfDiscreteLogs {
         decryption_share: PaillierModulusSizedNumber,
         rng: &mut impl CryptoRngCore,
     ) -> ProofOfEqualityOfDiscreteLogs {
+        // 1) Convert [ $\tilde{g}$, $\tilde{h}$ ] to [ $g$, $h$ ]
+        // 2) Create transcript.
         let (base, _, decryption_shares_and_bases, mut transcript) = Self::setup_protocol(
             n2,
             base,
             public_verification_key,
             vec![(decryption_share_base, decryption_share)],
         );
-
         let (decryption_share_base, _) = decryption_shares_and_bases.first().unwrap();
 
         Self::prove_inner(
