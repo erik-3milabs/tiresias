@@ -175,8 +175,9 @@ impl ProofOfEqualityOfDiscreteLogs {
         }
     }
 
+    /// This function implements step 4 of Protocol 4.1:
     /// Verify that `self` proves the equality of the discrete logs of $a = g^d$ and $b = h^d$.
-    /// Implements PROTOCOL 4.1 from Section 4.2. of the paper.
+    /// src: <https://eprint.iacr.org/archive/2023/998/20240217:153323>
     #[allow(clippy::too_many_arguments)]
     pub fn verify(
         &self,
@@ -197,6 +198,8 @@ impl ProofOfEqualityOfDiscreteLogs {
         decryption_share: PaillierModulusSizedNumber,
         rng: &mut impl CryptoRngCore,
     ) -> Result<()> {
+        // 1) Convert [ $\tilde{g}$, $\tilde{h}$, $ct_j$ ] to [ $g$, $h$, $ct_j^2$]
+        // 2) Create transcript.
         let (base, public_verification_key, decryption_shares_and_bases, mut transcript) =
             Self::setup_protocol(
                 n2,
@@ -204,7 +207,6 @@ impl ProofOfEqualityOfDiscreteLogs {
                 public_verification_key,
                 vec![(decryption_share_base, decryption_share)],
             );
-
         let (decryption_share_base, decryption_share) =
             decryption_shares_and_bases.first().unwrap();
 
