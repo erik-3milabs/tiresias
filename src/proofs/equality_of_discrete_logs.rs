@@ -88,33 +88,46 @@ impl ProofOfEqualityOfDiscreteLogs {
         )
     }
 
+    /// This function implements steps 1-3 of Protocol 4.1:
+    /// Create a proof of the Equality of Discrete Logs (EDL)
+    /// src: <https://eprint.iacr.org/archive/2023/998/20240217:153323>
     #[allow(clippy::too_many_arguments)]
     fn prove_inner(
+        // = N^2
         n2: PaillierModulusSizedNumber,
         number_of_parties: u16,
         threshold: u16,
+        // = x
         witness: SecretKeyShareSizedNumber,
+        // = g
         base: PaillierModulusSizedNumber,
+        // = h
         decryption_share_base: PaillierModulusSizedNumber,
         transcript: &mut Transcript,
         rng: &mut impl CryptoRngCore,
     ) -> ProofOfEqualityOfDiscreteLogs {
+        // = log2(D)
         let witness_size_upper_bound = secret_key_share_size_upper_bound(
             usize::from(number_of_parties),
             usize::from(threshold),
         );
 
+        // === Sample r ====
+        // Protocol 4.1, step 1a
         // TODO: can we do better? perhaps introduce a rand_bits() to crypto_bigint
         let randomizer = ProofOfEqualityOfDiscreteLogsRandomnessSizedNumber::random_mod(
             rng,
             &NonZero::new(
                 ProofOfEqualityOfDiscreteLogsRandomnessSizedNumber::ONE.shl_vartime(
                     witness_size_upper_bound + 2 * ComputationalSecuritySizedNumber::BITS,
-                ),
+                ), // = D * 2^{2κ}
             )
             .unwrap(),
         );
 
+        // === Compute u ====
+        // Protocol 4.1, step 1b
+        // = g^r mod N^2
         let base_randomizer = base
             .as_ring_element(&n2)
             .pow_bounded_exp(
@@ -123,6 +136,9 @@ impl ProofOfEqualityOfDiscreteLogs {
             )
             .as_natural_number();
 
+        // === Compute v ====
+        // Protocol 4.1, step 1c
+        // = h^r mod N^2
         let decryption_share_base_randomizer = decryption_share_base
             .as_ring_element(&n2)
             .pow_bounded_exp(
@@ -131,6 +147,9 @@ impl ProofOfEqualityOfDiscreteLogs {
             )
             .as_natural_number();
 
+        // === Compute e ====
+        // Protocol 4.1, step 2
+        // (computed instead of sampled due to Fiat-Shamir transform)
         let challenge = Self::compute_challenge(
             base_randomizer,
             decryption_share_base_randomizer,
@@ -143,6 +162,9 @@ impl ProofOfEqualityOfDiscreteLogs {
             witness.wrapping_mul(&challenge);
         let challenge_multiplied_by_witness: ProofOfEqualityOfDiscreteLogsRandomnessSizedNumber =
             challenge_multiplied_by_witness.resize();
+
+        // === Compute z ====
+        // Protocol 4.1, step 3
         let response = randomizer.wrapping_sub(&challenge_multiplied_by_witness);
 
         ProofOfEqualityOfDiscreteLogs {
