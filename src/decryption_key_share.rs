@@ -94,6 +94,9 @@ impl DecryptionKeyShare {
         Ok(decryption_shares)
     }
 
+    /// This function implements parts of Section 4.1:
+    /// Map c -> (c^{2*N!}, c^{2*N!*d_i})
+    /// src: <https://eprint.iacr.org/archive/2023/998/20240217:153323>
     fn generate_decryption_shares_semi_honest_internal(
         &self,
         ciphertexts: Vec<PaillierModulusSizedNumber>,
@@ -108,15 +111,17 @@ impl DecryptionKeyShare {
         #[cfg(feature = "parallel")]
         let iter = ciphertexts.par_iter();
 
+        // = ct^{2*N!} mod N^2
+        // Section 4.1, step 5.
         let decryption_share_bases: Vec<PaillierModulusSizedNumber> = iter
             .map(|ciphertext| {
                 ciphertext
-                    .as_ring_element(&n2)
-                    .pow_bounded_exp(&PaillierModulusSizedNumber::from(2u8), 2)
+                    .as_ring_element(&n2) // = ct mod N^2
+                    .pow_bounded_exp(&PaillierModulusSizedNumber::from(2u8), 2) // = ct^2 mod N^2
                     .pow_bounded_exp(
                         &self.precomputed_values.n_factorial,
                         factorial_upper_bound(usize::from(self.number_of_parties)),
-                    )
+                    ) // = ct^{2*N!} mod N^2
                     .as_natural_number()
             })
             .collect();
@@ -126,18 +131,20 @@ impl DecryptionKeyShare {
         #[cfg(feature = "parallel")]
         let iter = decryption_share_bases.par_iter();
 
+        // = ct^{2*N!*d_i} mod N^2
+        // Section 4.1, step 5.
         let decryption_shares = iter
             .map(|decryption_share_base| {
-                // $ c_i = c^{2n!d_i} $
+                // $ ct_i = ct^{2N!d_i} $
                 decryption_share_base
-                    .as_ring_element(&n2)
+                    .as_ring_element(&n2) // = ct_i mod N^2
                     .pow_bounded_exp(
                         &self.decryption_key_share,
                         secret_key_share_size_upper_bound(
                             usize::from(self.number_of_parties),
                             usize::from(self.threshold),
                         ),
-                    )
+                    ) // = ct_i^{d_i} mod N^2
                     .as_natural_number()
             })
             .collect();
@@ -152,9 +159,9 @@ impl DecryptionKeyShare {
     ) -> Result<Message> {
         let n2 = self.encryption_key.n2;
 
+        // Compute ( $\tilde{h}, \tilde{b}$ )
         let (decryption_share_bases, decryption_shares) =
             self.generate_decryption_shares_semi_honest_internal(ciphertexts)?;
-
         let decryption_shares_and_bases: Vec<(
             PaillierModulusSizedNumber,
             PaillierModulusSizedNumber,
